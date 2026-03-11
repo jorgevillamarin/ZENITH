@@ -1,1 +1,0 @@
-genracion de archivo ppara endpoint
