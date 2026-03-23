@@ -156,18 +156,18 @@
   }
 </script>
 
-<main class="relative">
-  <div class="flex items-center justify-between mb-8">
-    <h2 class="text-3xl font-bold text-gray-900">Mis Tareas</h2>
+<main class="relative pb-24 md:pb-0"> <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 md:mb-8 space-y-4 md:space-y-0">
+    <h2 class="text-2xl md:text-3xl font-bold text-gray-900">Mis Tareas</h2>
+    
     <div
-      class="text-lg text-gray-600 flex items-center space-x-3 p-3 border border-gray-300 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-[#4facfe]"
+      class="text-sm md:text-lg text-gray-600 flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 p-3 border border-gray-300 rounded-lg bg-white shadow-sm focus-within:ring-2 focus-within:ring-[#4facfe]"
     >
-      <span class="text-sm font-semibold uppercase tracking-wider"
+      <span class="text-xs md:text-sm font-semibold uppercase tracking-wider text-gray-500"
         >Ordenar por:</span
       >
       <select
         bind:value={sortBy}
-        class="font-bold text-gray-900 bg-transparent outline-none cursor-pointer appearance-none pr-4"
+        class="font-bold text-gray-900 bg-transparent outline-none cursor-pointer appearance-none w-full sm:w-auto pr-8"
       >
         <option value="fecha_desc">🕒 Más recientes</option>
         <option value="fecha_asc">🕰️ Más antiguas</option>
@@ -180,23 +180,23 @@
   <section>
     {#if tasks.length === 0}
       <div
-        class="text-center text-xl text-gray-600 p-10 bg-white rounded-lg shadow-md"
+        class="text-center text-lg md:text-xl text-gray-600 p-8 md:p-10 bg-white rounded-lg shadow-md mx-4 md:mx-0"
       >
         No tienes tareas pendientes. ¡Todo en orden!
       </div>
     {:else}
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {#each sortedTasks as task (task.id)}
           <div
             on:click={() => openEditModal(task)}
             on:keydown={(e) => e.key === "Enter" && openEditModal(task)}
             role="button"
             tabindex="0"
-            class="bg-white p-6 rounded-lg shadow-md border border-gray-200 flex flex-col space-y-4 hover:shadow-lg transition-shadow cursor-pointer"
+            class="bg-white p-4 md:p-6 rounded-lg shadow-md border border-gray-200 flex flex-col space-y-3 hover:shadow-lg transition-shadow cursor-pointer mx-2 md:mx-0"
           >
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between space-y-2 sm:space-y-0">
               <div
-                class="text-lg font-bold text-[#1a1a2e]"
+                class="text-lg font-bold text-[#1a1a2e] break-words pr-2"
                 style="text-decoration: {task.completed
                   ? 'line-through'
                   : 'none'}; opacity: {task.completed ? 0.6 : 1};"
@@ -204,16 +204,16 @@
                 {task.title}
               </div>
 
-              <div class="flex items-center space-x-2">
+              <div class="flex items-center space-x-3 sm:space-x-2 text-sm sm:text-base self-start sm:self-auto">
                 <button
                   on:click|stopPropagation={() => toggleTask(task)}
-                  class="text-gray-500 hover:text-[#4facfe] transition-colors"
+                  class="text-gray-500 hover:text-[#4facfe] transition-colors bg-gray-100 sm:bg-transparent px-2 py-1 rounded sm:p-0"
                 >
                   {task.completed ? "Deshacer" : "Completar"}
                 </button>
                 <button
                   on:click|stopPropagation={() => deleteTask(task.id)}
-                  class="text-red-500 hover:text-red-700 transition-colors"
+                  class="text-red-500 hover:text-red-700 transition-colors bg-red-50 sm:bg-transparent px-2 py-1 rounded sm:p-0"
                 >
                   Borrar
                 </button>
@@ -221,21 +221,21 @@
             </div>
 
             {#if task.description}
-              <p class="text-gray-600 text-sm">{task.description}</p>
+              <p class="text-gray-600 text-sm line-clamp-3">{task.description}</p>
             {/if}
 
             <div
-              class="flex items-center space-x-4 border-t border-gray-200 pt-4 mt-auto"
+              class="flex items-center justify-between border-t border-gray-200 pt-3 mt-auto"
             >
               <div
-                class="flex items-center space-x-2
+                class="flex items-center space-x-1 sm:space-x-2 text-sm sm:text-base
                 {task.priority === 'alta'
                   ? 'text-red-500'
                   : task.priority === 'media'
                     ? 'text-yellow-500'
                     : 'text-green-500'}"
               >
-                <span class="text-xl">
+                <span class="text-lg md:text-xl">
                   {task.priority === "alta"
                     ? "🔴"
                     : task.priority === "media"
@@ -244,7 +244,7 @@
                 </span>
                 <span class="font-bold capitalize">{task.priority}</span>
               </div>
-              <div class="text-gray-500 text-sm">
+              <div class="text-gray-500 text-xs sm:text-sm text-right">
                 {formatTaskDate(task.createdAt)}
               </div>
             </div>
@@ -254,24 +254,32 @@
     {/if}
   </section>
 
-  <div class="mt-12 text-center">
+  <div class="mt-12 text-center hidden md:block">
     <button
       on:click={openCreateModal}
-      class="bg-[#4facfe] text-white text-xl font-bold py-5 px-10 rounded-xl shadow-lg hover:bg-[#3facde] hover:scale-105 transition-transform flex items-center space-x-3 mx-auto"
+      class="bg-[#4facfe] text-white text-xl font-bold py-4 px-10 rounded-xl shadow-lg hover:bg-[#3facde] hover:scale-105 transition-transform flex items-center space-x-3 mx-auto"
     >
       <span class="text-3xl">+</span>
       <span>AGREGAR NUEVA TAREA</span>
     </button>
   </div>
 
+  <button
+    on:click={openCreateModal}
+    class="md:hidden fixed bottom-6 right-6 bg-[#4facfe] text-white w-14 h-14 rounded-full shadow-2xl hover:bg-[#3facde] transition-transform active:scale-95 flex items-center justify-center text-3xl z-40"
+    aria-label="Agregar nueva tarea"
+  >
+    +
+  </button>
+
   {#if isModalOpen}
     <div
-      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 transition-opacity"
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
     >
       <div
-        class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md transform transition-all"
+        class="bg-white p-6 md:p-8 rounded-2xl shadow-2xl w-full max-w-md transform transition-all max-h-[90vh] overflow-y-auto"
       >
-        <h3 class="text-2xl font-bold text-gray-900 mb-6">
+        <h3 class="text-xl md:text-2xl font-bold text-gray-900 mb-6">
           {editingTaskId ? "Editar Tarea" : "Nueva Tarea"}
         </h3>
 
@@ -315,7 +323,7 @@
             <select
               id="priority"
               bind:value={newPriority}
-              class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#4facfe] focus:border-transparent outline-none bg-white transition-all cursor-pointer"
+              class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#4facfe] focus:border-transparent outline-none bg-white transition-all cursor-pointer appearance-none"
             >
               <option value="baja">🟢 Baja</option>
               <option value="media">🟡 Media</option>
@@ -324,23 +332,23 @@
           </div>
         </div>
 
-        <div class="mt-8 flex justify-end space-x-3">
+        <div class="mt-8 flex flex-col-reverse sm:flex-row justify-end sm:space-x-3 gap-y-3 sm:gap-y-0">
           <button
             on:click={() => (isModalOpen = false)}
-            class="px-5 py-2.5 rounded-lg text-gray-600 font-semibold hover:bg-gray-100 transition-colors"
+            class="px-5 py-3 sm:py-2.5 rounded-lg text-gray-600 font-semibold hover:bg-gray-100 transition-colors w-full sm:w-auto text-center"
           >
             Cancelar
           </button>
           <button
             on:click={saveTask}
             disabled={isSaving || !newTitle.trim()}
-            class="px-5 py-2.5 rounded-lg bg-[#4facfe] text-white font-semibold hover:bg-[#3facde] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            class="px-5 py-3 sm:py-2.5 rounded-lg bg-[#4facfe] text-white font-semibold hover:bg-[#3facde] transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto text-center"
           >
             {isSaving
               ? "Guardando..."
               : editingTaskId
-                ? "Actualizar Tarea"
-                : "Guardar Tarea"}
+                ? "Actualizar"
+                : "Guardar"}
           </button>
         </div>
       </div>
