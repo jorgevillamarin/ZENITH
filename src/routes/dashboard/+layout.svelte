@@ -22,9 +22,9 @@
     </div>
 
     <aside class="
-        {isMenuOpen ? 'block' : 'hidden'} 
+        {isMenuOpen ? 'flex' : 'hidden'} 
         md:flex md:w-64 bg-[#1a1a2e] text-white p-6 flex-col space-y-10 shadow-lg 
-        fixed md:relative z-50 h-full w-3/4 max-w-xs md:max-w-none
+        fixed md:sticky md:top-0 z-50 h-screen w-3/4 max-w-xs md:max-w-none
     ">
         <div class="hidden md:flex text-3xl font-extrabold text-[#4facfe] items-center space-x-3">
             <img src="/Icon.jpeg" alt="Logo Zenith" class="w-9 h-9 object-contain rounded-lg" />
@@ -57,8 +57,7 @@
         ></div>
     {/if}
 
-    <main class="flex-1 flex flex-col">
-        <header class="bg-white p-4 md:p-6 border-b border-gray-200 flex items-center justify-between">
+    <main class="flex-1 flex flex-col min-w-0"> <header class="bg-white p-4 md:p-6 border-b border-gray-200 flex items-center justify-between">
             <h1 class="text-xl md:text-3xl font-bold text-gray-900">Dashboard</h1>
             
             <div class="flex items-center space-x-3 md:space-x-6">
@@ -72,7 +71,7 @@
             </div>
         </header>
 
-        <div class="p-4 md:p-10">
+        <div class="p-4 md:p-10 flex-grow">
             <slot />
         </div>
     </main>
