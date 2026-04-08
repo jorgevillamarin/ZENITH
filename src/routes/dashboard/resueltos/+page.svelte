@@ -8,10 +8,13 @@
   let sortBy = "fecha_desc";
 
   $: sortedTasks = tasks.slice().sort((a, b) => {
+    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    
     if (sortBy === "fecha_desc") {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      return dateB - dateA;
     } else if (sortBy === "fecha_asc") {
-      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return dateA - dateB;
     } else if (sortBy === "prioridad") {
       const valores = { alta: 3, media: 2, baja: 1 };
       const valorA = valores[a.priority as keyof typeof valores] || 2;
@@ -22,14 +25,20 @@
   });
 
   async function toggleTask(task: Task) {
-    const response = await fetch(`/api/tasks/${task.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed: !task.completed }),
-    });
+    try {
+      const response = await fetch(`/api/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed: !task.completed }),
+      });
 
-    if (response.ok) {
-      tasks = tasks.filter((t) => t.id !== task.id);
+      if (response.ok) {
+        tasks = tasks.filter((t) => t.id !== task.id);
+      } else {
+        alert("Error al cambiar el estado de la tarea");
+      }
+    } catch {
+      alert("Error de conexión");
     }
   }
 
@@ -39,10 +48,16 @@
     );
     if (!isConfirmed) return;
 
-    const response = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    try {
+      const response = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
 
-    if (response.ok) {
-      tasks = tasks.filter((t) => t.id !== id);
+      if (response.ok) {
+        tasks = tasks.filter((t) => t.id !== id);
+      } else {
+        alert("Hubo un error al intentar borrar la tarea.");
+      }
+    } catch {
+      alert("Error de conexión");
     }
   }
 

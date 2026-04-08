@@ -88,9 +88,15 @@ export const DELETE: RequestHandler = async ({ params }) => {
     }
 
     try {
+        const existing = await db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+        if (!existing) {
+            throw error(404, 'La tarea no existe');
+        }
+        
         await db.delete(tasks).where(eq(tasks.id, taskId));
         return json({ success: true, message: `Tarea ${taskId} eliminada correctamente` });
     } catch (err) {
+        if ((err as any).status === 404) throw err;
         console.error("Error al borrar:", err);
         throw error(500, 'Hubo un error al intentar eliminar la tarea en la base de datos');
     }

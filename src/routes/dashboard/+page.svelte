@@ -71,10 +71,13 @@
   let sortBy = "fecha_desc";
 
   $: sortedTasks = tasks.slice().sort((a, b) => {
+    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    
     if (sortBy === "fecha_desc") {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      return dateB - dateA;
     } else if (sortBy === "fecha_asc") {
-      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return dateA - dateB;
     } else if (sortBy === "prioridad") {
       const valores = { alta: 3, media: 2, baja: 1 };
       const valorA = valores[a.priority as keyof typeof valores] || 2;
@@ -89,18 +92,25 @@
   async function toggleTask(task: Task) {
     completingId = task.id;
     
-    setTimeout(async () => {
-      const response = await fetch(`/api/tasks/${task.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completed: !task.completed }),
-      });
+    try {
+      setTimeout(async () => {
+        const response = await fetch(`/api/tasks/${task.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ completed: !task.completed }),
+        });
 
-      if (response.ok) {
-        tasks = tasks.filter(t => t.id !== task.id);
-      }
+        if (response.ok) {
+          tasks = tasks.filter(t => t.id !== task.id);
+        } else {
+          alert("Error al completar la tarea");
+          completingId = null;
+        }
+      }, 400);
+    } catch {
       completingId = null;
-    }, 400);
+      alert("Error de conexión");
+    }
   }
 
   async function deleteTask(id: number) {
@@ -109,12 +119,16 @@
     );
     if (!isConfirmed) return;
 
-    const response = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    try {
+      const response = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
 
-    if (response.ok) {
-      tasks = tasks.filter((t) => t.id !== id);
-    } else {
-      alert("Hubo un error al intentar borrar la tarea.");
+      if (response.ok) {
+        tasks = tasks.filter((t) => t.id !== id);
+      } else {
+        alert("Hubo un error al intentar borrar la tarea.");
+      }
+    } catch {
+      alert("Error de conexión");
     }
   }
 
@@ -318,6 +332,7 @@
               type="text"
               bind:value={newTitle}
               placeholder="Ej. Limpiar Jardín"
+              maxlength="100"
               class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#4facfe] focus:border-transparent outline-none transition-all"
             />
           </div>
@@ -333,6 +348,7 @@
               bind:value={newDescription}
               placeholder="Detalles adicionales..."
               rows="3"
+              maxlength="500"
               class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#4facfe] focus:border-transparent outline-none transition-all resize-none"
             ></textarea>
           </div>
