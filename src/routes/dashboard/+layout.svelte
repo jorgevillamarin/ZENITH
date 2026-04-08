@@ -35,8 +35,11 @@
             <a href="/dashboard" on:click={() => isMenuOpen = false} class="flex items-center space-x-3 text-lg p-3 rounded-lg bg-[#4facfe] text-white font-semibold">
                 <span>🏠</span> <span>Inicio</span>
             </a>
+            <a href="/dashboard/resueltos" on:click={() => isMenuOpen = false} class="flex items-center space-x-3 text-lg p-3 rounded-lg text-gray-300 hover:bg-[#2a2a4e] hover:text-white transition-colors">
+                <span>✅</span> <span class="text-base md:text-lg">Resueltos</span>
+            </a>
             <a href="#pendientes" on:click={() => isMenuOpen = false} class="flex items-center space-x-3 text-lg p-3 rounded-lg text-gray-300 hover:bg-[#2a2a4e] hover:text-white transition-colors">
-                <span>✅</span> <span class="text-base md:text-lg">Revisar Pendientes</span>
+                <span>📋</span> <span class="text-base md:text-lg">Revisar Pendientes</span>
             </a>
             <a href="#prioridad" on:click={() => isMenuOpen = false} class="flex items-center space-x-3 text-lg p-3 rounded-lg text-gray-300 hover:bg-[#2a2a4e] hover:text-white transition-colors">
                 <span>📊</span> <span class="text-base md:text-lg">Ajustar Prioridad</span>

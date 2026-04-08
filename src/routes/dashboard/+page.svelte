@@ -4,8 +4,8 @@
 
   export let data: PageData;
   let tasks: Task[] = data.tasks;
+  let completingId: number | null = null;
 
-  // --- Estado para el Modal y el Formulario ---
   let isModalOpen = false;
   let editingTaskId: number | null = null;
   let newTitle = "";
@@ -13,7 +13,6 @@
   let newPriority = "media";
   let isSaving = false;
 
-  // --- Funciones para abrir el Modal ---
   function openCreateModal() {
     editingTaskId = null;
     newTitle = "";
@@ -30,7 +29,6 @@
     isModalOpen = true;
   }
 
-  // --- Función unificada para Guardar o Actualizar ---
   async function saveTask() {
     if (!newTitle.trim()) return;
 
@@ -42,7 +40,6 @@
     };
 
     if (editingTaskId) {
-      // ACTUALIZAR (PATCH)
       const response = await fetch(`/api/tasks/${editingTaskId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -57,7 +54,6 @@
         isModalOpen = false;
       }
     } else {
-      // CREAR NUEVA (POST)
       const response = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -72,42 +68,39 @@
     }
     isSaving = false;
   }
-  // --- NUEVO: Estado y Lógica de Ordenamiento ---
-  let sortBy = "fecha_desc"; // Por defecto, mostramos las más nuevas primero
+  let sortBy = "fecha_desc";
 
-  // El símbolo $: le dice a Svelte que ejecute esto cada vez que 'tasks' o 'sortBy' cambien
   $: sortedTasks = tasks.slice().sort((a, b) => {
     if (sortBy === "fecha_desc") {
-      // Más nuevas primero
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     } else if (sortBy === "fecha_asc") {
-      // Más viejas primero
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     } else if (sortBy === "prioridad") {
-      // Alta (3) -> Media (2) -> Baja (1)
       const valores = { alta: 3, media: 2, baja: 1 };
       const valorA = valores[a.priority as keyof typeof valores] || 2;
       const valorB = valores[b.priority as keyof typeof valores] || 2;
       return valorB - valorA;
     } else if (sortBy === "estado") {
-      // Pendientes (false) primero, Completadas (true) al final
       return Number(a.completed) - Number(b.completed);
     }
     return 0;
   });
 
-  // --- Funciones de Acciones Rápidas (Completar y Borrar) ---
   async function toggleTask(task: Task) {
-    const response = await fetch(`/api/tasks/${task.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed: !task.completed }),
-    });
+    completingId = task.id;
+    
+    setTimeout(async () => {
+      const response = await fetch(`/api/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed: !task.completed }),
+      });
 
-    if (response.ok) {
-      const updatedTask: Task = await response.json();
-      tasks = tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t));
-    }
+      if (response.ok) {
+        tasks = tasks.filter(t => t.id !== task.id);
+      }
+      completingId = null;
+    }, 400);
   }
 
   async function deleteTask(id: number) {
@@ -125,7 +118,6 @@
     }
   }
 
-  // --- Utilidad para la Fecha ---
   function formatTaskDate(dateValue: Date | string | number | null) {
     if (!dateValue) return "Sin fecha";
 
@@ -155,6 +147,31 @@
     }
   }
 </script>
+
+<style>
+  @keyframes checkmark {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+  }
+  @keyframes slideOut {
+    0% { transform: translateX(0); opacity: 1; }
+    100% { transform: translateX(100%); opacity: 0; }
+  }
+  @keyframes checkFade {
+    0% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.5); }
+  }
+  .animate-check {
+    animation: checkmark 0.4s ease-out;
+  }
+  .animate-slideOut {
+    animation: slideOut 0.4s ease-out forwards;
+  }
+  .animate-checkFade {
+    animation: checkFade 0.4s ease-out forwards;
+  }
+</style>
 
 <main class="relative pb-24 md:pb-0"> <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 md:mb-8 space-y-4 md:space-y-0">
     <h2 class="text-2xl md:text-3xl font-bold text-gray-900">Mis Tareas</h2>
@@ -192,7 +209,7 @@
             on:keydown={(e) => e.key === "Enter" && openEditModal(task)}
             role="button"
             tabindex="0"
-            class="bg-white p-4 md:p-5 rounded-lg shadow-md border border-gray-200 flex flex-col h-full min-h-[160px] md:min-h-[180px] hover:shadow-lg transition-shadow cursor-pointer"
+            class="bg-white p-4 md:p-5 rounded-lg shadow-md border border-gray-200 flex flex-col h-full min-h-[160px] md:min-h-[180px] hover:shadow-lg transition-shadow cursor-pointer {completingId === task.id ? 'animate-slideOut' : ''}"
           >
             <div class="flex items-start justify-between gap-2 mb-2">
               <div
@@ -207,7 +224,7 @@
               <div class="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm shrink-0">
                 <button
                   on:click|stopPropagation={() => toggleTask(task)}
-                  class="text-gray-500 hover:text-[#4facfe] transition-colors p-1.5 sm:p-0"
+                  class="text-gray-500 hover:text-[#4facfe] transition-colors p-1.5 sm:p-0 {completingId === task.id ? 'animate-check' : ''}"
                   title={task.completed ? "Deshacer" : "Completar"}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
