@@ -1,11 +1,20 @@
 <script lang="ts">
   import type { PageData } from "./$types";
-  import type { Task } from "$lib/server/schema";
+  import type { Task, Category } from "$lib/server/schema";
 
   export let data: PageData;
   let tasks: Task[] = data.tasks;
+  let categories: Category[] = data.categories || [];
+  
+  let isDeleteModalOpen = false;
+  let deleteTargetId: number | null = null;
 
   let sortBy = "fecha_desc";
+
+  function getCategoryById(id: number | null | undefined): Category | undefined {
+    if (!id) return undefined;
+    return categories.find(c => c.id === id);
+  }
 
   $: sortedTasks = tasks.slice().sort((a, b) => {
     const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -24,6 +33,17 @@
     return 0;
   });
 
+  function openDeleteModal(id: number, event: Event) {
+    event.stopPropagation();
+    deleteTargetId = id;
+    isDeleteModalOpen = true;
+  }
+
+  function closeDeleteModal() {
+    deleteTargetId = null;
+    isDeleteModalOpen = false;
+  }
+
   async function toggleTask(task: Task) {
     try {
       const response = await fetch(`/api/tasks/${task.id}`, {
@@ -34,31 +54,25 @@
 
       if (response.ok) {
         tasks = tasks.filter((t) => t.id !== task.id);
-      } else {
-        alert("Error al cambiar el estado de la tarea");
       }
     } catch {
       alert("Error de conexión");
     }
   }
 
-  async function deleteTask(id: number) {
-    const isConfirmed = confirm(
-      "¿Estás seguro de que deseas eliminar esta tarea? Esta acción no se puede deshacer.",
-    );
-    if (!isConfirmed) return;
+  async function confirmDelete() {
+    if (!deleteTargetId) return;
 
     try {
-      const response = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+      const response = await fetch(`/api/tasks/${deleteTargetId}`, { method: "DELETE" });
 
       if (response.ok) {
-        tasks = tasks.filter((t) => t.id !== id);
-      } else {
-        alert("Hubo un error al intentar borrar la tarea.");
+        tasks = tasks.filter((t) => t.id !== deleteTargetId);
       }
     } catch {
       alert("Error de conexión");
     }
+    closeDeleteModal();
   }
 
   function formatTaskDate(dateValue: Date | string | number | null) {
@@ -143,7 +157,7 @@
                   </svg>
                 </button>
                 <button
-                  on:click={() => deleteTask(task.id)}
+                  on:click={(e) => openDeleteModal(task.id, e)}
                   class="text-red-500 hover:text-red-700 transition-colors p-1.5 sm:p-0"
                   title="Borrar"
                 >
@@ -176,4 +190,39 @@
       </div>
     {/if}
   </section>
+
+  {#if isDeleteModalOpen}
+    <div
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+    >
+      <div
+        class="bg-white p-6 md:p-8 rounded-2xl shadow-2xl w-full max-w-sm transform transition-all"
+      >
+        <div class="text-center">
+          <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Eliminar Tarea</h3>
+          <p class="text-gray-600 mb-6">¿Estás seguro de que deseas eliminar esta tarea? Esta acción no se puede deshacer.</p>
+          
+          <div class="flex gap-3">
+            <button
+              on:click={closeDeleteModal}
+              class="flex-1 px-5 py-2.5 rounded-lg text-gray-600 font-semibold hover:bg-gray-100 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              on:click={confirmDelete}
+              class="flex-1 px-5 py-2.5 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors"
+            >
+              Eliminar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
 </main>

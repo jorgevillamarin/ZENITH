@@ -1,4 +1,4 @@
-// src/routes/dashboard/resueltos/+page.ts
+// src/routes/dashboard/categorias/+page.ts
 import type { PageLoad } from './$types';
 import type { Task, Category } from '$lib/server/schema';
 
@@ -21,10 +21,18 @@ export const load: PageLoad = async ({ fetch }) => {
         categories = Array.isArray(data) ? data : [];
     }
     
-    const resolvedTasks = tasks.filter((task: any) => task.completed);
+    const activeTasks = tasks.filter((task: any) => !task.completed);
+    
+    const tasksByCategory = categories.map(cat => ({
+        category: cat,
+        tasks: activeTasks.filter((t: any) => t.categoryId === cat.id)
+    }));
+    
+    const uncategorized = activeTasks.filter((t: any) => !t.categoryId);
     
     return {
-        tasks: resolvedTasks,
-        categories: categories
+        categories: tasksByCategory,
+        uncategorized: uncategorized,
+        allCategories: categories
     };
 };

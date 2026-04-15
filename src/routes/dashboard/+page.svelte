@@ -1,23 +1,30 @@
 <script lang="ts">
   import type { PageData } from "./$types";
-  import type { Task } from "$lib/server/schema";
+  import type { Task, Category } from "$lib/server/schema";
 
   export let data: PageData;
   let tasks: Task[] = data.tasks;
+  let categories: Category[] = data.categories || [];
   let completingId: number | null = null;
 
   let isModalOpen = false;
+  let isDeleteModalOpen = false;
+  let deleteTargetId: number | null = null;
   let editingTaskId: number | null = null;
   let newTitle = "";
   let newDescription = "";
   let newPriority = "media";
+  let newCategoryId: number | null = null;
   let isSaving = false;
+  let formError = "";
 
   function openCreateModal() {
     editingTaskId = null;
     newTitle = "";
     newDescription = "";
     newPriority = "media";
+    newCategoryId = null;
+    formError = "";
     isModalOpen = true;
   }
 
@@ -26,51 +33,112 @@
     newTitle = task.title;
     newDescription = task.description || "";
     newPriority = task.priority || "media";
+    newCategoryId = task.categoryId || null;
+    formError = "";
     isModalOpen = true;
   }
 
+  function openDeleteModal(id: number, event: Event) {
+    event.stopPropagation();
+    deleteTargetId = id;
+    isDeleteModalOpen = true;
+  }
+
+  function closeDeleteModal() {
+    deleteTargetId = null;
+    isDeleteModalOpen = false;
+  }
+
+  function hasOnlySpecialChars(str: string): boolean {
+    const cleanStr = str.replace(/[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/g, '');
+    return cleanStr.length === str.length;
+  }
+
+  function validateForm(): boolean {
+    formError = "";
+    
+    if (!newTitle.trim()) {
+      formError = "El título es obligatorio";
+      return false;
+    }
+    if (newTitle.trim().length < 5) {
+      formError = "El título debe tener al menos 5 caracteres";
+      return false;
+    }
+    if (hasOnlySpecialChars(newTitle.trim())) {
+      formError = "El título no puede contener solo caracteres especiales";
+      return false;
+    }
+    if (newDescription.trim().length > 0 && newDescription.trim().length < 5) {
+      formError = "La descripción debe tener al menos 5 caracteres";
+      return false;
+    }
+    if (newDescription.trim().length > 0 && hasOnlySpecialChars(newDescription.trim())) {
+      formError = "La descripción no puede contener solo caracteres especiales";
+      return false;
+    }
+    
+    return true;
+  }
+
   async function saveTask() {
-    if (!newTitle.trim()) return;
+    if (!validateForm()) return;
 
     isSaving = true;
+    formError = "";
     const taskData = {
       title: newTitle,
       description: newDescription,
       priority: newPriority,
+      categoryId: newCategoryId,
     };
 
-    if (editingTaskId) {
-      const response = await fetch(`/api/tasks/${editingTaskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(taskData),
-      });
+    try {
+      if (editingTaskId) {
+        const response = await fetch(`/api/tasks/${editingTaskId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(taskData),
+        });
 
-      if (response.ok) {
-        const updatedTask: Task = await response.json();
-        tasks = tasks.map((t) =>
-          t.id === editingTaskId ? { ...t, ...updatedTask } : t,
-        );
-        isModalOpen = false;
-      }
-    } else {
-      const response = await fetch("/api/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(taskData),
-      });
+        if (response.ok) {
+          const updatedTask: Task = await response.json();
+          tasks = tasks.map((t) =>
+            t.id === editingTaskId ? { ...t, ...updatedTask } : t,
+          );
+          isModalOpen = false;
+        } else {
+          const err = await response.json();
+          formError = err.message || "Error al actualizar";
+        }
+      } else {
+        const response = await fetch("/api/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(taskData),
+        });
 
-      if (response.ok) {
-        const newTask: Task = await response.json();
-        tasks = [...tasks, newTask];
-        isModalOpen = false;
+        if (response.ok) {
+          const newTask: Task = await response.json();
+          tasks = [...tasks, newTask];
+          isModalOpen = false;
+        } else {
+          const err = await response.json();
+          formError = err.message || "Error al crear";
+        }
       }
+    } catch {
+      formError = "Error de conexión";
     }
     isSaving = false;
   }
   let sortBy = "fecha_desc";
+  let selectedCategory: number | null = null;
 
-  $: sortedTasks = tasks.slice().sort((a, b) => {
+  $: sortedTasks = tasks
+    .filter(t => selectedCategory === null || t.categoryId === selectedCategory)
+    .slice()
+    .sort((a, b) => {
     const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
     const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
     
@@ -89,7 +157,13 @@
     return 0;
   });
 
-  async function toggleTask(task: Task) {
+  function getCategoryById(id: number | null | undefined): Category | undefined {
+    if (!id) return undefined;
+    return categories.find(c => c.id === id);
+  }
+
+  async function toggleTask(task: Task, event: Event) {
+    event.stopPropagation();
     completingId = task.id;
     
     try {
@@ -113,23 +187,21 @@
     }
   }
 
-  async function deleteTask(id: number) {
-    const isConfirmed = confirm(
-      "¿Estás seguro de que deseas eliminar esta tarea? Esta acción no se puede deshacer.",
-    );
-    if (!isConfirmed) return;
+  async function confirmDelete() {
+    if (!deleteTargetId) return;
 
     try {
-      const response = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+      const response = await fetch(`/api/tasks/${deleteTargetId}`, { method: "DELETE" });
 
       if (response.ok) {
-        tasks = tasks.filter((t) => t.id !== id);
+        tasks = tasks.filter((t) => t.id !== deleteTargetId);
       } else {
         alert("Hubo un error al intentar borrar la tarea.");
       }
     } catch {
       alert("Error de conexión");
     }
+    closeDeleteModal();
   }
 
   function formatTaskDate(dateValue: Date | string | number | null) {
@@ -190,15 +262,21 @@
 <main class="relative pb-24 md:pb-0"> <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 md:mb-8 space-y-4 md:space-y-0">
     <h2 class="text-2xl md:text-3xl font-bold text-gray-900">Mis Tareas</h2>
     
-    <div
-      class="text-sm md:text-lg text-gray-600 flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 p-3 border border-gray-300 rounded-lg bg-white shadow-sm focus-within:ring-2 focus-within:ring-[#4facfe]"
-    >
-      <span class="text-xs md:text-sm font-semibold uppercase tracking-wider text-gray-500"
-        >Ordenar por:</span
+    <div class="flex flex-wrap gap-3">
+      {#if categories.length > 0}
+      <select
+        bind:value={selectedCategory}
+        class="text-sm md:text-lg text-gray-600 p-3 border border-gray-300 rounded-lg bg-white shadow-sm focus-within:ring-2 focus-within:ring-[#4facfe]"
       >
+        <option value={null}>Todas las categorías</option>
+        {#each categories as category}
+          <option value={category.id}>{category.name}</option>
+        {/each}
+      </select>
+      {/if}
       <select
         bind:value={sortBy}
-        class="font-bold text-gray-900 bg-transparent outline-none cursor-pointer appearance-none w-full sm:w-auto pr-8"
+        class="text-sm md:text-lg text-gray-600 p-3 border border-gray-300 rounded-lg bg-white shadow-sm focus-within:ring-2 focus-within:ring-[#4facfe]"
       >
         <option value="fecha_desc">🕒 Más recientes</option>
         <option value="fecha_asc">🕰️ Más antiguas</option>
@@ -237,7 +315,7 @@
 
               <div class="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm shrink-0">
                 <button
-                  on:click|stopPropagation={() => toggleTask(task)}
+                  on:click={(e) => toggleTask(task, e)}
                   class="text-gray-500 hover:text-[#4facfe] transition-colors p-1.5 sm:p-0 {completingId === task.id ? 'animate-check' : ''}"
                   title={task.completed ? "Deshacer" : "Completar"}
                 >
@@ -246,7 +324,7 @@
                   </svg>
                 </button>
                 <button
-                  on:click|stopPropagation={() => deleteTask(task.id)}
+                  on:click={(e) => openDeleteModal(task.id, e)}
                   class="text-red-500 hover:text-red-700 transition-colors p-1.5 sm:p-0"
                   title="Borrar"
                 >
@@ -264,22 +342,35 @@
             <div
               class="flex items-center justify-between border-t border-gray-200 pt-2 mt-auto"
             >
-              <div
-                class="flex items-center gap-1 text-xs sm:text-sm font-medium
-                {task.priority === 'alta'
-                  ? 'text-red-500'
-                  : task.priority === 'media'
-                    ? 'text-yellow-500'
-                    : 'text-green-500'}"
-              >
-                <span class="text-base">
-                  {task.priority === "alta"
-                    ? "🔴"
-                    : task.priority === "media"
-                      ? "🟡"
-                      : "🟢"}
-                </span>
-                <span class="capitalize hidden sm:inline">{task.priority}</span>
+              <div class="flex items-center gap-2">
+                {#if task.categoryId}
+                  {@const cat = getCategoryById(task.categoryId)}
+                  {#if cat}
+                  <span 
+                    class="text-xs px-2 py-0.5 rounded-full text-white font-medium"
+                    style="background-color: {cat.color || '#4facfe'}"
+                  >
+                    {cat.name}
+                  </span>
+                  {/if}
+                {/if}
+                <div
+                  class="flex items-center gap-1 text-xs sm:text-sm font-medium
+                  {task.priority === 'alta'
+                    ? 'text-red-500'
+                    : task.priority === 'media'
+                      ? 'text-yellow-500'
+                      : 'text-green-500'}"
+                >
+                  <span class="text-base">
+                    {task.priority === "alta"
+                      ? "🔴"
+                      : task.priority === "media"
+                        ? "🟡"
+                        : "🟢"}
+                  </span>
+                  <span class="capitalize hidden sm:inline">{task.priority}</span>
+                </div>
               </div>
               <div class="text-gray-500 text-xs text-right shrink-0">
                 {formatTaskDate(task.createdAt)}
@@ -321,6 +412,11 @@
         </h3>
 
         <div class="space-y-4">
+          {#if formError}
+            <div class="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm border border-red-200">
+              {formError}
+            </div>
+          {/if}
           <div>
             <label
               for="title"
@@ -369,6 +465,26 @@
               <option value="alta">🔴 Alta</option>
             </select>
           </div>
+
+          {#if categories.length > 0}
+          <div>
+            <label
+              for="category"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Categoría</label
+            >
+            <select
+              id="category"
+              bind:value={newCategoryId}
+              class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#4facfe] focus:border-transparent outline-none bg-white transition-all cursor-pointer appearance-none"
+            >
+              <option value={null}>Sin categoría</option>
+              {#each categories as category}
+                <option value={category.id}>{category.name}</option>
+              {/each}
+            </select>
+          </div>
+          {/if}
         </div>
 
         <div class="mt-8 flex flex-col-reverse sm:flex-row justify-end sm:space-x-3 gap-y-3 sm:gap-y-0">
@@ -389,6 +505,41 @@
                 ? "Actualizar"
                 : "Guardar"}
           </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if isDeleteModalOpen}
+    <div
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+    >
+      <div
+        class="bg-white p-6 md:p-8 rounded-2xl shadow-2xl w-full max-w-sm transform transition-all"
+      >
+        <div class="text-center">
+          <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Eliminar Tarea</h3>
+          <p class="text-gray-600 mb-6">¿Estás seguro de que deseas eliminar esta tarea? Esta acción no se puede deshacer.</p>
+          
+          <div class="flex gap-3">
+            <button
+              on:click={closeDeleteModal}
+              class="flex-1 px-5 py-2.5 rounded-lg text-gray-600 font-semibold hover:bg-gray-100 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              on:click={confirmDelete}
+              class="flex-1 px-5 py-2.5 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors"
+            >
+              Eliminar
+            </button>
+          </div>
         </div>
       </div>
     </div>
