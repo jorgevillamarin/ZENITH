@@ -4,8 +4,15 @@ import { tasks, type NewTask } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
+const MIN_TITLE_LENGTH = 5;
+const MIN_DESCRIPTION_LENGTH = 5;
 const MAX_TITLE_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 500;
+
+function hasOnlySpecialChars(str: string): boolean {
+    const cleanStr = str.replace(/[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/g, '');
+    return cleanStr.length === str.length;
+}
 
 function validateUpdateData(data: any): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
@@ -16,16 +23,24 @@ function validateUpdateData(data: any): { valid: boolean; errors: string[] } {
             errors.push('El título debe ser una cadena de texto');
         } else if (!data.title.trim()) {
             errors.push('El título no puede estar vacío');
+        } else if (data.title.length < MIN_TITLE_LENGTH) {
+            errors.push(`El título debe tener al menos ${MIN_TITLE_LENGTH} caracteres`);
         } else if (data.title.length > MAX_TITLE_LENGTH) {
             errors.push(`El título no puede exceder ${MAX_TITLE_LENGTH} caracteres`);
+        } else if (hasOnlySpecialChars(data.title)) {
+            errors.push('El título no puede contener solo caracteres especiales');
         }
     }
     
-    if (data.description !== undefined) {
-        if (data.description !== null && typeof data.description !== 'string') {
+    if (data.description !== undefined && data.description !== null && data.description.trim()) {
+        if (typeof data.description !== 'string') {
             errors.push('La descripción debe ser una cadena de texto o null');
-        } else if (data.description && data.description.length > MAX_DESCRIPTION_LENGTH) {
+        } else if (data.description.length < MIN_DESCRIPTION_LENGTH) {
+            errors.push(`La descripción debe tener al menos ${MIN_DESCRIPTION_LENGTH} caracteres`);
+        } else if (data.description.length > MAX_DESCRIPTION_LENGTH) {
             errors.push(`La descripción no puede exceder ${MAX_DESCRIPTION_LENGTH} caracteres`);
+        } else if (hasOnlySpecialChars(data.description)) {
+            errors.push('La descripción no puede contener solo caracteres especiales');
         }
     }
     
@@ -40,6 +55,12 @@ function validateUpdateData(data: any): { valid: boolean; errors: string[] } {
     if (data.completed !== undefined) {
         if (typeof data.completed !== 'boolean') {
             errors.push('El estado de completado debe ser un valor booleano');
+        }
+    }
+    
+    if (data.categoryId !== undefined) {
+        if (data.categoryId !== null && typeof data.categoryId !== 'number') {
+            errors.push('La categoría debe ser un número válido o null');
         }
     }
     
@@ -70,6 +91,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
     if (body.description !== undefined) updateData.description = body.description?.trim() || null;
     if (body.priority !== undefined) updateData.priority = body.priority;
     if (body.completed !== undefined) updateData.completed = body.completed;
+    if (body.categoryId !== undefined) updateData.categoryId = body.categoryId || null;
 
     const [updatedTask] = await db.update(tasks)
         .set(updateData) 
