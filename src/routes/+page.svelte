@@ -1,27 +1,33 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import '../app.css';
   
-  let email = '';
-  let password = '';
-  let error = '';
-  let isLoading = false;
+  let email = $state('');
+  let password = $state('');
+  let error = $state('');
+  let isLoading = $state(false);
+  let isLoadingText = $state('Iniciar Sesión');
   
-  let showRegister = false;
-  let regName = '';
-  let regLastname = '';
-  let regEmail = '';
-  let regPassword = '';
-  let regError = '';
-  let regSuccess = '';
-  let isRegistering = false;
+  let showRegister = $state(false);
+  let regName = $state('');
+  let regLastname = $state('');
+  let regEmail = $state('');
+  let regPassword = $state('');
+  let regError = $state('');
+  let regSuccess = $state('');
+  let isRegistering = $state(false);
+  let registerBtnText = $state('Crear Cuenta');
 
-  async function handleLogin() {
+  async function handleLogin(e: Event) {
+    e.preventDefault();
+    
     if (!email || !password) {
       error = 'Por favor completa todos los campos';
       return;
     }
 
     isLoading = true;
+    isLoadingText = 'Verificando...';
     error = '';
 
     try {
@@ -42,15 +48,19 @@
     }
 
     isLoading = false;
+    isLoadingText = 'Iniciar Sesión';
   }
 
-  async function handleRegister() {
+  async function handleRegister(e: Event) {
+    e.preventDefault();
+    
     if (!regName || !regLastname || !regEmail || !regPassword) {
       regError = 'Todos los campos son obligatorios';
       return;
     }
 
     isRegistering = true;
+    registerBtnText = 'Creando...';
     regError = '';
     regSuccess = '';
 
@@ -67,7 +77,7 @@
       });
 
       if (response.ok) {
-        regSuccess = '¡Cuenta creada exitosamente! Ahora puedes iniciar sesión.';
+        regSuccess = '¡Cuenta creada exitosamente!';
         setTimeout(() => {
           showRegister = false;
           email = regEmail;
@@ -86,152 +96,351 @@
     }
 
     isRegistering = false;
+    registerBtnText = 'Crear Cuenta';
+  }
+
+  function closeRegister() {
+    showRegister = false;
+    regError = '';
+    regSuccess = '';
+    regName = '';
+    regLastname = '';
+    regEmail = '';
+    regPassword = '';
   }
 </script>
 
-<main class="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a1a2e] to-[#16213e] p-4">
-  <div class="w-full max-w-md">
-    <div class="bg-white rounded-2xl shadow-2xl p-8">
-      <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-16 h-16 mb-4">
-          <img src="/Icon.jpeg" alt="Logo Zenith" class="w-16 h-16 rounded-xl object-contain" />
-        </div>
-        <h1 class="text-2xl font-bold text-gray-900">Zenith</h1>
-        <p class="text-gray-500 mt-1">Ingresa a tu cuenta</p>
+<div class="login-page">
+  <div class="login-container">
+    <form onsubmit={handleLogin} class="login-form">
+      <div class="logo-container">
+        <img src="/Icon.jpeg" alt="Zenith Logo" class="logo" />
       </div>
-
+      <h2>LOGIN</h2>
+      
       {#if error}
-        <div class="bg-red-50 text-red-600 px-4 py-3 rounded-lg mb-4 text-sm">
-          {error}
-        </div>
+        <p class="error-message">{error}</p>
       {/if}
-
-      <form on:submit|preventDefault={handleLogin} class="space-y-5">
-        <div>
-          <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
-            Correo electrónico
-          </label>
-          <input
-            type="email"
-            id="email"
-            bind:value={email}
-            placeholder="correo@ejemplo.com"
-            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#4facfe] focus:border-transparent outline-none transition-all"
-          />
-        </div>
-
-        <div>
-          <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
-            Contraseña
-          </label>
-          <input
-            type="password"
-            id="password"
-            bind:value={password}
-            placeholder="••••••••"
-            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#4facfe] focus:border-transparent outline-none transition-all"
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={isLoading}
-          class="w-full py-3 px-4 bg-[#4facfe] hover:bg-[#3facde] text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? 'Ingresando...' : 'Iniciar Sesión'}
-        </button>
-      </form>
-
-      <div class="mt-6 text-center text-sm text-gray-500">
-        <p>¿No tienes cuenta? <button on:click={() => showRegister = true} class="text-[#4facfe] hover:underline font-medium">Crear cuenta</button></p>
+      
+      <div class="input-group">
+        <i class="fas fa-envelope"></i>
+        <input 
+          type="email" 
+          bind:value={email} 
+          required 
+        />
+        <label>Email</label>
       </div>
-    </div>
+      
+      <div class="input-group">
+        <i class="fas fa-lock"></i>
+        <input 
+          type="password" 
+          bind:value={password} 
+          required 
+        />
+        <label>Password</label>
+      </div>
+      
+      <button type="submit" class="login-btn" disabled={isLoading}>
+        {isLoadingText}
+      </button>
+      
+      <p class="signup-link">
+        New here? <button type="button" onclick={() => showRegister = true}>Create Account</button>
+      </p>
+    </form>
   </div>
-</main>
+</div>
 
 {#if showRegister}
-  <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-    <div class="bg-white p-6 md:p-8 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-      <div class="flex items-center justify-between mb-6">
-        <h2 class="text-xl font-bold text-gray-900">Crear Cuenta</h2>
-        <button on:click={() => showRegister = false} class="text-gray-400 hover:text-gray-600 text-2xl">
-          &times;
-        </button>
-      </div>
-
-      {#if regError}
-        <div class="bg-red-50 text-red-600 px-4 py-3 rounded-lg mb-4 text-sm">
-          {regError}
+  <div class="modal-overlay" onclick={closeRegister}>
+    <div class="login-container register-modal" onclick={(e) => e.stopPropagation()}>
+      <button class="close-btn" onclick={closeRegister}>&times;</button>
+      <form onsubmit={handleRegister} class="login-form">
+        <div class="logo-container">
+          <img src="/Icon.jpeg" alt="Zenith Logo" class="logo" />
         </div>
-      {/if}
-
-      {#if regSuccess}
-        <div class="bg-green-50 text-green-600 px-4 py-3 rounded-lg mb-4 text-sm">
-          {regSuccess}
-        </div>
-      {/if}
-
-      <form on:submit|preventDefault={handleRegister} class="space-y-4">
-        <div>
-          <label for="regName" class="block text-sm font-medium text-gray-700 mb-1">
-            Nombres
-          </label>
-          <input
-            type="text"
-            id="regName"
-            bind:value={regName}
-            placeholder="Juan"
-            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#4facfe] focus:border-transparent outline-none transition-all"
+        <h2>CREATE ACCOUNT</h2>
+        
+        {#if regError}
+          <p class="error-message">{regError}</p>
+        {/if}
+        
+        {#if regSuccess}
+          <p class="success-message">{regSuccess}</p>
+        {/if}
+        
+        <div class="input-group">
+          <i class="fas fa-user"></i>
+          <input 
+            type="text" 
+            bind:value={regName} 
+            required 
           />
+          <label>First Name</label>
         </div>
-
-        <div>
-          <label for="regLastname" class="block text-sm font-medium text-gray-700 mb-1">
-            Apellidos
-          </label>
-          <input
-            type="text"
-            id="regLastname"
-            bind:value={regLastname}
-            placeholder="Pérez"
-            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#4facfe] focus:border-transparent outline-none transition-all"
+        
+        <div class="input-group">
+          <i class="fas fa-user"></i>
+          <input 
+            type="text" 
+            bind:value={regLastname} 
+            required 
           />
+          <label>Last Name</label>
         </div>
-
-        <div>
-          <label for="regEmail" class="block text-sm font-medium text-gray-700 mb-1">
-            Correo electrónico
-          </label>
-          <input
-            type="email"
-            id="regEmail"
-            bind:value={regEmail}
-            placeholder="correo@ejemplo.com"
-            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#4facfe] focus:border-transparent outline-none transition-all"
+        
+        <div class="input-group">
+          <i class="fas fa-envelope"></i>
+          <input 
+            type="email" 
+            bind:value={regEmail} 
+            required 
           />
+          <label>Email</label>
         </div>
-
-        <div>
-          <label for="regPassword" class="block text-sm font-medium text-gray-700 mb-1">
-            Contraseña
-          </label>
-          <input
-            type="password"
-            id="regPassword"
-            bind:value={regPassword}
-            placeholder="Mínimo 6 caracteres"
-            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#4facfe] focus:border-transparent outline-none transition-all"
+        
+        <div class="input-group">
+          <i class="fas fa-lock"></i>
+          <input 
+            type="password" 
+            bind:value={regPassword} 
+            required 
           />
+          <label>Password</label>
         </div>
-
-        <button
-          type="submit"
-          disabled={isRegistering}
-          class="w-full py-3 px-4 bg-[#4facfe] hover:bg-[#3facde] text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isRegistering ? 'Creando...' : 'Crear Cuenta'}
+        
+        <button type="submit" class="login-btn" disabled={isRegistering}>
+          {registerBtnText}
         </button>
       </form>
     </div>
   </div>
 {/if}
+
+<style>
+  .login-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-image: url('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .login-page::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.4);
+    z-index: 1;
+  }
+
+  .login-container {
+    position: relative;
+    width: 380px;
+    padding: 50px 40px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+    z-index: 10;
+  }
+
+  .login-form h2 {
+    color: #ffffff;
+    text-align: center;
+    margin-bottom: 30px;
+    font-weight: 500;
+    letter-spacing: 3px;
+    font-size: 24px;
+  }
+
+  .logo-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 25px;
+  }
+
+  .logo {
+    width: 70px;
+    height: 70px;
+    border-radius: 16px;
+    object-fit: cover;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  }
+
+  .input-group {
+    position: relative;
+    margin-bottom: 30px;
+  }
+
+  .input-group i {
+    position: absolute;
+    left: 0;
+    top: 14px;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 16px;
+    transition: 0.3s;
+  }
+
+  .input-group input {
+    width: 100%;
+    padding: 12px 5px 12px 30px;
+    font-size: 15px;
+    color: #ffffff;
+    background: transparent;
+    border: none;
+    border-bottom: 1.5px solid rgba(255, 255, 255, 0.3);
+    outline: none;
+    transition: 0.3s;
+  }
+
+  .input-group label {
+    position: absolute;
+    top: 14px;
+    left: 30px;
+    color: rgba(255, 255, 255, 0.7);
+    pointer-events: none;
+    transition: 0.3s ease;
+    font-size: 14px;
+  }
+
+  .input-group input:focus {
+    border-bottom: 1.5px solid #38bdf8;
+  }
+
+  .input-group input:focus ~ label,
+  .input-group input:valid ~ label {
+    top: -18px;
+    left: 0;
+    font-size: 12px;
+    color: #38bdf8;
+    font-weight: 500;
+  }
+
+  .input-group input:focus ~ i,
+  .input-group input:valid ~ i {
+    color: #38bdf8;
+  }
+
+  .login-btn {
+    width: 100%;
+    padding: 14px;
+    background: #0ea5e9;
+    border: none;
+    border-radius: 8px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 10px;
+  }
+
+  .login-btn:hover {
+    background: #0284c7;
+    box-shadow: 0 10px 20px rgba(14, 165, 233, 0.3);
+    transform: translateY(-1px);
+  }
+
+  .login-btn:active {
+    transform: translateY(0);
+  }
+
+  .login-btn:disabled {
+    background: #64748b;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .signup-link {
+    text-align: center;
+    margin-top: 25px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 13px;
+  }
+
+  .signup-link button {
+    color: #38bdf8;
+    text-decoration: none;
+    font-weight: 600;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  .signup-link button:hover {
+    color: #7dd3fc;
+    text-decoration: underline;
+  }
+
+  .error-message {
+    color: #f87171;
+    text-align: center;
+    margin-bottom: 15px;
+    font-size: 13px;
+    background: rgba(239, 68, 68, 0.2);
+    padding: 8px;
+    border-radius: 6px;
+  }
+
+  .success-message {
+    color: #4ade80;
+    text-align: center;
+    margin-bottom: 15px;
+    font-size: 13px;
+    background: rgba(74, 222, 128, 0.2);
+    padding: 8px;
+    border-radius: 6px;
+  }
+
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+  }
+
+  .register-modal {
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .close-btn {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 28px;
+    cursor: pointer;
+    transition: 0.3s;
+  }
+
+  .close-btn:hover {
+    color: #ffffff;
+  }
+</style>
