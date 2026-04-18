@@ -24,6 +24,7 @@ export const categories = sqliteTable('categories', {
 
 export const tasks = sqliteTable('tasks', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull().references(() => users.id),
   title: text('title').notNull(),
   description: text('description'),
   completed: integer('completed', { mode: 'boolean' }).default(false),

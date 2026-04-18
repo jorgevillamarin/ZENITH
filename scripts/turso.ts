@@ -7,14 +7,19 @@ const client = createClient({
   authToken: process.env.DATABASE_AUTH_TOKEN,
 });
 
-async function check() {
-  const result = await client.execute({ sql: "PRAGMA table_info(tasks)" });
-  console.log('Tasks columns:', result.rows.map((r: any) => r.name));
+async function migrate() {
+  console.log('Adding user_id to tasks...');
   
-  const streakResult = await client.execute({ sql: "SELECT name FROM sqlite_master WHERE type='table' AND name='streaks'" });
-  console.log('Streaks table exists:', streakResult.rows.length > 0);
+  try {
+    await client.execute({
+      sql: 'ALTER TABLE tasks ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1'
+    });
+    console.log('Added user_id column');
+  } catch (e: any) {
+    console.log('Error:', e.message.slice(0, 150));
+  }
   
   process.exit(0);
 }
 
-check();
+migrate();

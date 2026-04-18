@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { tasks, categories, type NewTask } from '$lib/server/schema';
+import { sessions, tasks } from '$lib/server/schema';
+import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 const MIN_TITLE_LENGTH = 5;
@@ -28,25 +29,14 @@ function validateTaskData(data: any): { valid: boolean; errors: string[] } {
         errors.push('El título no puede contener solo caracteres especiales');
     }
     
-    if (data.description !== undefined && data.description !== null && data.description.trim()) {
-        if (typeof data.description !== 'string') {
-            errors.push('La descripción debe ser una cadena de texto');
-        } else if (data.description.length < MIN_DESCRIPTION_LENGTH) {
-            errors.push(`La descripción debe tener al menos ${MIN_DESCRIPTION_LENGTH} caracteres`);
-        } else if (data.description.length > MAX_DESCRIPTION_LENGTH) {
-            errors.push(`La descripción no puede exceder ${MAX_DESCRIPTION_LENGTH} caracteres`);
-        } else if (hasOnlySpecialChars(data.description)) {
-            errors.push('La descripción no puede contener solo caracteres especiales');
-        }
+    if (data.description && typeof data.description !== 'string') {
+        errors.push('La descripción debe ser una cadena de texto');
+    } else if (data.description && data.description.length > MAX_DESCRIPTION_LENGTH) {
+        errors.push(`La descripción no puede exceder ${MAX_DESCRIPTION_LENGTH} caracteres`);
     }
     
-    const validPriorities = ['baja', 'media', 'alta'];
-    if (data.priority !== undefined && data.priority !== null) {
-        if (typeof data.priority !== 'string') {
-            errors.push('La prioridad debe ser una cadena de texto');
-        } else if (!validPriorities.includes(data.priority)) {
-            errors.push('La prioridad debe ser: baja, media o alta');
-        }
+    if (data.priority && !['baja', 'media', 'alta'].includes(data.priority)) {
+        errors.push('La prioridad debe ser: baja, media o alta');
     }
     
     if (data.categoryId !== undefined && data.categoryId !== null) {
@@ -58,21 +48,36 @@ function validateTaskData(data: any): { valid: boolean; errors: string[] } {
     return { valid: errors.length === 0, errors };
 }
 
-export const GET: RequestHandler = async ({ url }) => {
+function getUserIdFromSession(cookies: any): number | null {
+    const sessionId = cookies.get('session');
+    if (!sessionId) return null;
+    return null;
+}
+
+export const GET: RequestHandler = async ({ url, cookies }) => {
     try {
+        const sessionId = cookies.get('session');
+        if (!sessionId) {
+            return json({ error: 'No autorizado' }, { status: 401 });
+        }
+        
+        const session = await db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+        if (!session) {
+            return json({ error: 'Sesión inválida' }, { status: 401 });
+        }
+        
         const categoryId = url.searchParams.get('category');
         
-        let query = db.select().from(tasks).orderBy(tasks.createdAt);
+        let query = db.select().from(tasks).where(eq(tasks.userId, session.userId)).orderBy(tasks.createdAt);
         
         if (categoryId) {
             const catId = Number(categoryId);
             if (!isNaN(catId)) {
-                query = query.where(tasks.categoryId.equals(catId));
+                query = query.where(eq(tasks.categoryId, catId));
             }
         }
         
         const allTasks = query.all();
-        console.log('Tasks API response:', allTasks.length, 'tasks');
         return json(allTasks);
     } catch (err) {
         console.error('Error fetching tasks:', err);
@@ -80,7 +85,17 @@ export const GET: RequestHandler = async ({ url }) => {
     }
 };
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, cookies }) => {
+    const sessionId = cookies.get('session');
+    if (!sessionId) {
+        throw error(401, 'No autorizado');
+    }
+    
+    const session = await db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+    if (!session) {
+        throw error(401, 'Sesión inválida');
+    }
+    
     let body: any;
     try {
         body = await request.json();
@@ -96,6 +111,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const { title, description, priority, categoryId } = body;
     
     const [newTask] = await db.insert(tasks).values({
+        userId: session.userId,
         title: title.trim(),
         description: description?.trim() || null,
         priority: priority || 'media',
