@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { tasks, type NewTask } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
+import { sessions, tasks, type NewTask } from '$lib/server/schema';
+import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 const MIN_TITLE_LENGTH = 5;
@@ -67,11 +67,31 @@ function validateUpdateData(data: any): { valid: boolean; errors: string[] } {
     return { valid: errors.length === 0, errors };
 }
 
-export const PATCH: RequestHandler = async ({ params, request }) => {
+async function getUserIdFromSession(cookies: any): Promise<number | null> {
+    const sessionId = cookies.get('session');
+    if (!sessionId) return null;
+    
+    const session = await db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+    if (!session) return null;
+    
+    return session.userId;
+}
+
+export const PATCH: RequestHandler = async ({ params, request, cookies }) => {
+    const userId = await getUserIdFromSession(cookies);
+    if (!userId) {
+        throw error(401, 'No autorizado');
+    }
+    
     const taskId = Number(params.id);
     
     if (isNaN(taskId) || taskId <= 0) {
         throw error(400, 'El ID proporcionado no es válido');
+    }
+    
+    const existingTask = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId))).get();
+    if (!existingTask) {
+        throw error(404, 'Tarea no encontrada');
     }
     
     let body: any;
@@ -95,31 +115,35 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 
     const [updatedTask] = await db.update(tasks)
         .set(updateData) 
-        .where(eq(tasks.id, taskId))
+        .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
         .returning();
 
     if (!updatedTask) throw error(404, 'No se pudo actualizar la tarea');
     return json(updatedTask);
 };
 
-export const DELETE: RequestHandler = async ({ params }) => {
+export const DELETE: RequestHandler = async ({ params, cookies }) => {
+    const userId = await getUserIdFromSession(cookies);
+    if (!userId) {
+        throw error(401, 'No autorizado');
+    }
+    
     const taskId = Number(params.id);
     
     if (isNaN(taskId) || taskId <= 0) {
         throw error(400, 'El ID proporcionado no es un número válido');
     }
 
+    const existingTask = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId))).get();
+    if (!existingTask) {
+        throw error(404, 'Tarea no encontrada');
+    }
+    
     try {
-        const existing = await db.select().from(tasks).where(eq(tasks.id, taskId)).get();
-        if (!existing) {
-            throw error(404, 'La tarea no existe');
-        }
-        
-        await db.delete(tasks).where(eq(tasks.id, taskId));
+        await db.delete(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
         return json({ success: true, message: `Tarea ${taskId} eliminada correctamente` });
     } catch (err) {
-        if ((err as any).status === 404) throw err;
         console.error("Error al borrar:", err);
-        throw error(500, 'Hubo un error al intentar eliminar la tarea en la base de datos');
+        throw error(500, 'Hubo un error al intentar eliminar la tarea');
     }
 };

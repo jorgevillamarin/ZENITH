@@ -44,6 +44,11 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     
     const { tasks } = await import('$lib/server/schema');
     
+    const taskToCheck = await db.select().from(tasks).where(eq(tasks.id, taskId)).get();
+    if (!taskToCheck || taskToCheck.userId !== session.userId) {
+        throw error(404, 'Tarea no encontrada');
+    }
+    
     if (completed) {
         await db.update(tasks)
             .set({ completed: true, completedAt: new Date() })

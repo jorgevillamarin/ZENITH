@@ -47,19 +47,42 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
         throw redirect(302, '/');
     }
     
-    const allTasks = await db.select().from(tasks).all();
+    const allTasks = await db.select().from(tasks).where(eq(tasks.userId, user.id)).all();
     const allCategories = await db.select().from(categories).all();
     const unresolvedTasks = allTasks.filter((t: any) => !t.completed);
     const resolvedTasks = allTasks.filter((t: any) => t.completed);
     
-    let streakData = { currentStreak: 0, longestStreak: 0 };
+    let streakData = { currentStreak: 0, longestStreak: 0, isActive: false };
     try {
         const streak = await db.select()
             .from(streaks)
             .where(eq(streaks.userId, user.id))
             .get();
         if (streak) {
-            streakData = { currentStreak: streak.currentStreak, longestStreak: streak.longestStreak };
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            const lastDate = streak.lastCompletedDate ? new Date(streak.lastCompletedDate) : null;
+            lastDate?.setHours(0, 0, 0, 0);
+            
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            let isActive = false;
+            if (lastDate) {
+                if (lastDate.getTime() === now.getTime()) {
+                    isActive = true;
+                } else if (lastDate.getTime() === yesterday.getTime()) {
+                    isActive = true;
+                } else {
+                    isActive = false;
+                }
+            }
+            
+            streakData = { 
+                currentStreak: streak.currentStreak, 
+                longestStreak: streak.longestStreak,
+                isActive: isActive
+            };
         }
     } catch (e) {
         console.error('Streak error:', e);

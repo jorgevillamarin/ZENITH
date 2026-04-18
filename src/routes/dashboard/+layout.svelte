@@ -52,7 +52,7 @@
                     <p class="text-sm font-medium text-white truncate">{data.user?.name || 'Usuario'}</p>
                     <div class="flex items-center gap-1">
                         <span class="text-base">🔥</span>
-                        <span class="text-sm font-bold {data.streak?.currentStreak > 0 ? 'text-orange-400' : 'text-gray-500'}">
+                        <span class="text-sm font-bold {data.streak?.isActive ? 'text-orange-400' : 'text-gray-500'}">
                             {data.streak?.currentStreak || 0}
                         </span>
                     </div>
