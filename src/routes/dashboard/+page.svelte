@@ -150,10 +150,7 @@
             streakAnimationKey += 1;
             setTimeout(() => {
               showStreakAnimation = false;
-              window.location.reload();
             }, 2500);
-          } else {
-            window.location.reload();
           }
         } else {
           alert("Error al completar la tarea");
@@ -169,6 +166,21 @@
   let showStreakAnimation = $state(false);
   let streakAnimationKey = $state(0);
   let streakJustIncreased = $state(0);
+  let showCompletionAnimation = $state(false);
+  let completionAnimationKey = $state(0);
+  let lastXP = $state(0);
+  let newLevel = $state(0);
+  
+  async function triggerCompletionAnimation(xp: number, level: number) {
+    showCompletionAnimation = true;
+    lastXP = xp;
+    newLevel = level;
+    completionAnimationKey += 1;
+    setTimeout(() => {
+      showCompletionAnimation = false;
+      window.location.reload();
+    }, 2000);
+  }
 </script>
 
 <main class="max-w-5xl mx-auto">

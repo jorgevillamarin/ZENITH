@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { sessions, users, streaks } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
+import { sessions, users, streaks, userStats, badges, userBadges, dailyChallenges, activityLog } from '$lib/server/schema';
+import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 function isSameDay(date1: Date, date2: Date): boolean {
@@ -54,6 +54,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             .set({ completed: true, completedAt: new Date() })
             .where(eq(tasks.id, taskId));
         
+        const now = new Date();
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
@@ -62,6 +63,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             .where(eq(streaks.userId, session.userId))
             .get();
         
+        let justIncreased = false;
+        
         if (!streakRecord) {
             streakRecord = await db.insert(streaks).values({
                 userId: session.userId,
@@ -69,12 +72,12 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
                 longestStreak: 1,
                 lastCompletedDate: today
             }).returning();
+            justIncreased = true;
         } else {
             const lastDate = streakRecord.lastCompletedDate ? new Date(streakRecord.lastCompletedDate) : null;
             lastDate?.setHours(0, 0, 0, 0);
             
             let newStreak = streakRecord.currentStreak;
-            let justIncreased = false;
             
             if (lastDate && isSameDay(lastDate, today)) {
                 // Ya completó hoy, no increase
@@ -97,20 +100,125 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
                 .where(eq(streaks.id, streakRecord.id));
             
             streakRecord = { ...streakRecord, currentStreak: newStreak, longestStreak: newLongest };
+        }
+        
+        let xpEarned = 10;
+        let levelUp = false;
+        let currentLevel = 1;
+        
+        try {
+            let stats = await db.select().from(userStats).where(eq(userStats.userId, session.userId)).get();
+            if (!stats) {
+                await db.insert(userStats).values({ userId: session.userId });
+                stats = await db.select().from(userStats).where(eq(userStats.userId, session.userId)).get();
+            }
             
-            return json({ 
-                success: true, 
-                streak: newStreak,
-                longestStreak: newLongest,
-                justIncreased: justIncreased
-            });
+            const lastCompleted = stats?.lastTaskCompletedAt ? new Date(stats.lastTaskCompletedAt) : null;
+            let newCombo = 1;
+            if (lastCompleted) {
+                const diffMinutes = (now.getTime() - lastCompleted.getTime()) / (1000 * 60);
+                if (diffMinutes <= 30) {
+                    newCombo = (stats?.currentCombo || 0) + 1;
+                }
+            }
+            
+            const comboBonus = Math.min((newCombo - 1), 5) * 5;
+            xpEarned = 10 + comboBonus;
+            
+            const newXP = (stats?.xp || 0) + xpEarned;
+            
+            const LEVEL_THRESHOLDS = [0, 100, 250, 500, 1000, 2000, 3500, 5500, 8000, 12000, 17000, 25000, 35000, 50000];
+            currentLevel = stats?.level || 1;
+            for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
+                if (newXP >= LEVEL_THRESHOLDS[i]) {
+                    currentLevel = i + 1;
+                    break;
+                }
+            }
+            levelUp = currentLevel > (stats?.level || 1);
+            
+            const updates: any = {
+                xp: newXP,
+                level: currentLevel,
+                totalTasksCompleted: (stats?.totalTasksCompleted || 0) + 1,
+                currentCombo: newCombo,
+                longestCombo: Math.max(stats?.longestCombo || 0, newCombo),
+                lastTaskCompletedAt: now,
+                dailyTasksToday: (stats?.dailyTasksToday || 0) + 1,
+                weeklyTasksThisWeek: (stats?.weeklyTasksThisWeek || 0) + 1,
+                lastDailyReset: today,
+                lastWeeklyReset: new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay())
+            };
+            
+            await db.update(userStats).set(updates).where(eq(userStats.id, stats.id));
+            
+            const challenge = await db.select()
+                .from(dailyChallenges)
+                .where(and(
+                    eq(dailyChallenges.userId, session.userId),
+                    eq(dailyChallenges.date, today)
+                )).get();
+            
+            if (challenge) {
+                const newCompleted = challenge.completedTasks + 1;
+                const challengeCompleted = newCompleted >= challenge.targetTasks;
+                await db.update(dailyChallenges).set({
+                    completedTasks: newCompleted,
+                    completed: challengeCompleted
+                }).where(eq(dailyChallenges.id, challenge.id));
+                
+                if (challengeCompleted && !challenge.completed) {
+                    await db.update(userStats).set({ xp: newXP + challenge.xpReward }).where(eq(userStats.id, stats.id));
+                    xpEarned += challenge.xpReward;
+                }
+            } else {
+                const targetTasks = 3 + Math.floor(Math.random() * 5);
+                const xpReward = targetTasks * 10;
+                await db.insert(dailyChallenges).values({
+                    userId: session.userId,
+                    date: today,
+                    targetTasks,
+                    xpReward,
+                    completedTasks: 1,
+                    completed: targetTasks <= 1
+                });
+            }
+            
+            const taskCount = stats?.totalTasksCompleted || 0;
+            const allBadges = await db.select().from(badges).all();
+            const earned = await db.select().from(userBadges).where(eq(userBadges.userId, session.userId)).all();
+            const earnedIds = earned.map(b => b.badgeId);
+            
+            for (const badge of allBadges) {
+                if (earnedIds.includes(badge.id)) continue;
+                
+                let earnedNow = false;
+                if (badge.requirement === 'total_tasks') {
+                    earnedNow = taskCount >= badge.requirementValue;
+                } else if (badge.requirement === 'combo') {
+                    earnedNow = newCombo >= badge.requirementValue;
+                } else if (badge.requirement === 'streak') {
+                    earnedNow = streakRecord.currentStreak >= badge.requirementValue;
+                }
+                
+                if (earnedNow) {
+                    await db.insert(userBadges).values({ userId: session.userId, badgeId: badge.id });
+                }
+            }
+        } catch (e) {
+            console.error('Gamification error:', e);
         }
         
         return json({ 
             success: true, 
-            streak: 1,
-            longestStreak: 1,
-            justIncreased: true
+            streak: streakRecord?.currentStreak || 1,
+            longestStreak: streakRecord?.longestStreak || 1,
+            justIncreased,
+            xpEarned,
+            newCombo: 1,
+            level: currentLevel,
+            levelUp,
+            comboBonus: 0
         });
     } else {
         await db.update(tasks)

@@ -1,8 +1,8 @@
 import type { LayoutServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { sessions, users, tasks, categories, streaks } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
+import { sessions, users, tasks, categories, streaks, userStats, badges, userBadges, dailyChallenges, activityLog } from '$lib/server/schema';
+import { eq, and, gte } from 'drizzle-orm';
 
 export const load: LayoutServerLoad = async ({ cookies }) => {
     const sessionId = cookies.get('session');
@@ -121,6 +121,70 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
         return dueDate.getTime() === today.getTime();
     }).length;
     
+    let userStatsData: any = null;
+    let userBadgesData: number[] = [];
+    let dailyChallengeData: any = null;
+    let allBadgesData: any[] = [];
+    
+    try {
+        userStatsData = await db.select().from(userStats).where(eq(userStats.userId, user.id)).get();
+        if (!userStatsData) {
+            await db.insert(userStats).values({ userId: user.id });
+            userStatsData = await db.select().from(userStats).where(eq(userStats.userId, user.id)).get();
+        }
+        
+        allBadgesData = await db.select().from(badges).all();
+        if (allBadgesData.length === 0) {
+            const defaultBadges = [
+                { name: 'Primera Tarea', description: 'Completa tu primera tarea', icon: '🌟', requirement: 'total_tasks', requirementValue: 1 },
+                { name: 'Iniciado', description: 'Completa 10 tareas', icon: '🔥', requirement: 'total_tasks', requirementValue: 10 },
+                { name: 'Productor', description: 'Completa 50 tareas', icon: '⚡', requirement: 'total_tasks', requirementValue: 50 },
+                { name: 'Experto', description: 'Completa 100 tareas', icon: '🏆', requirement: 'total_tasks', requirementValue: 100 },
+                { name: 'Maestro', description: 'Completa 500 tareas', icon: '👑', requirement: 'total_tasks', requirementValue: 500 },
+                { name: 'Combo 3', description: 'Completa 3 tareas seguidas', icon: '🔥', requirement: 'combo', requirementValue: 3 },
+                { name: 'Combo 5', description: 'Completa 5 tareas seguidas', icon: '💥', requirement: 'combo', requirementValue: 5 },
+                { name: 'Combo 10', description: 'Completa 10 tareas seguidas', icon: '🌈', requirement: 'combo', requirementValue: 10 },
+                { name: 'Racha 7', description: 'Mantén una racha de 7 días', icon: '📅', requirement: 'streak', requirementValue: 7 },
+                { name: 'Racha 30', description: 'Mantén una racha de 30 días', icon: '🗓️', requirement: 'streak', requirementValue: 30 },
+            ];
+            for (const badge of defaultBadges) {
+                await db.insert(badges).values(badge);
+            }
+            allBadgesData = await db.select().from(badges).all();
+        }
+        
+        const earned = await db.select().from(userBadges).where(eq(userBadges.userId, user.id)).all();
+        userBadgesData = earned.map(b => b.badgeId);
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        dailyChallengeData = await db.select()
+            .from(dailyChallenges)
+            .where(and(
+                eq(dailyChallenges.userId, user.id),
+                eq(dailyChallenges.date, today)
+            )).get();
+        
+        if (!dailyChallengeData) {
+            const targetTasks = 3 + Math.floor(Math.random() * 5);
+            const xpReward = targetTasks * 10;
+            await db.insert(dailyChallenges).values({
+                userId: user.id,
+                date: today,
+                targetTasks,
+                xpReward
+            });
+            dailyChallengeData = await db.select()
+                .from(dailyChallenges)
+                .where(and(
+                    eq(dailyChallenges.userId, user.id),
+                    eq(dailyChallenges.date, today)
+                )).get();
+        }
+    } catch (e) {
+        console.error('Gamification load error:', e);
+    }
+    
     return {
         user: {
             id: user.id,
@@ -140,6 +204,12 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
         notifications: {
             overdue: overdueCount,
             dueToday: dueTodayCount
+        },
+        gamification: {
+            stats: userStatsData,
+            badges: allBadgesData,
+            earnedBadges: userBadgesData,
+            dailyChallenge: dailyChallengeData
         }
     };
 };

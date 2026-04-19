@@ -38,7 +38,7 @@
     <aside class="
         {isMenuOpen ? 'flex' : 'hidden'} 
         md:flex md:w-64 bg-[#1a1a2e] text-white p-6 flex-col justify-between shadow-lg 
-        fixed md:sticky md:top-0 z-50 h-screen w-3/4 max-w-xs md:max-w-none
+        fixed md:sticky md:top-0 z-50 h-screen w-3/4 max-w-xs md:max-w-none overflow-y-auto
     ">
         <div class="flex flex-col space-y-6">
             <div class="flex items-center gap-3 px-2">
@@ -68,16 +68,47 @@
                 <a href="/dashboard" onclick={() => isMenuOpen = false} class="flex items-center space-x-3 text-lg p-3 rounded-lg {isActive('/dashboard') ? 'bg-[#4facfe] text-white font-semibold' : 'text-gray-300 hover:bg-[#2a2a4e] hover:text-white transition-colors'}">
                     <span>🏠</span> <span>Inicio</span>
                 </a>
+                <a href="/dashboard/clasificacion" onclick={() => isMenuOpen = false} class="flex items-center space-x-3 text-lg p-3 rounded-lg {isActive('/dashboard/clasificacion') ? 'bg-[#4facfe] text-white font-semibold' : 'text-gray-300 hover:bg-[#2a2a4e] hover:text-white transition-colors'}">
+                    <span>🏆</span> <span>Clasificación</span>
+                </a>
+                <a href="/dashboard/logros" onclick={() => isMenuOpen = false} class="flex items-center space-x-3 text-lg p-3 rounded-lg {isActive('/dashboard/logros') ? 'bg-[#4facfe] text-white font-semibold' : 'text-gray-300 hover:bg-[#2a2a4e] hover:text-white transition-colors'}">
+                    <span>🏅</span> <span>Logros</span>
+                </a>
                 <a href="/dashboard/categorias" onclick={() => isMenuOpen = false} class="flex items-center space-x-3 text-lg p-3 rounded-lg {isActive('/dashboard/categorias') ? 'bg-[#4facfe] text-white font-semibold' : 'text-gray-300 hover:bg-[#2a2a4e] hover:text-white transition-colors'}">
-                    <span>📁</span> <span class="text-base md:text-lg">Categorías</span>
+                    <span>📁</span> <span>Categorías</span>
                 </a>
                 <a href="/dashboard/resueltos" onclick={() => isMenuOpen = false} class="flex items-center space-x-3 text-lg p-3 rounded-lg {isActive('/dashboard/resueltos') ? 'bg-[#4facfe] text-white font-semibold' : 'text-gray-300 hover:bg-[#2a2a4e] hover:text-white transition-colors'}">
-                    <span>✅</span> <span class="text-base md:text-lg">Resueltos</span>
+                    <span>✅</span> <span>Resueltos</span>
                 </a>
                 <a href="/dashboard/perfil" onclick={() => isMenuOpen = false} class="flex items-center space-x-3 text-lg p-3 rounded-lg {isActive('/dashboard/perfil') ? 'bg-[#4facfe] text-white font-semibold' : 'text-gray-300 hover:bg-[#2a2a4e] hover:text-white transition-colors'}">
-                    <span>👤</span> <span class="text-base md:text-lg">Mi Perfil</span>
+                    <span>👤</span> <span>Mi Perfil</span>
                 </a>
             </nav>
+            
+            {#if data.gamification?.stats}
+            <div class="mt-4 p-3 bg-[#2a2a4e] rounded-xl border border-[#4facfe]/30">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-gray-400">Nivel {data.gamification.stats.level}</span>
+                    <span class="text-sm font-bold text-[#4facfe]">{data.gamification.stats.xp} XP</span>
+                </div>
+                <div class="w-full bg-gray-700 rounded-full h-2">
+                    <div class="bg-gradient-to-r from-[#4facfe] to-[#00f2fe] h-2 rounded-full" style="width: {Math.min((data.gamification.stats.xp % 100), 100)}%"></div>
+                </div>
+                
+                {#if data.gamification?.dailyChallenge}
+                <div class="mt-3 pt-3 border-t border-gray-700">
+                    <div class="flex items-center justify-between text-xs text-gray-400 mb-1">
+                        <span>Desafío diario</span>
+                        <span>{data.gamification.dailyChallenge.completedTasks}/{data.gamification.dailyChallenge.targetTasks}</span>
+                    </div>
+                    <div class="w-full bg-gray-700 rounded-full h-1.5">
+                        <div class="bg-orange-500 h-1.5 rounded-full" style="width: {Math.min((data.gamification.dailyChallenge.completedTasks / data.gamification.dailyChallenge.targetTasks) * 100, 100)}%"></div>
+                    </div>
+                    <p class="text-xs text-orange-400 mt-1">+{data.gamification.dailyChallenge.xpReward} XP</p>
+                </div>
+                {/if}
+            </div>
+            {/if}
         </div>
         
         <div class="border-t border-gray-700 pt-4">
