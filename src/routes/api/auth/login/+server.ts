@@ -3,10 +3,7 @@ import { db } from '$lib/server/db';
 import { users, sessions } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
-
-function generateId(): string {
-    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-}
+import { verifyPassword, generateSecureId } from '$lib/server/auth';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
     let body: any;
@@ -22,13 +19,13 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         throw error(400, 'Email y contraseña son obligatorios');
     }
     
-    const user = await db.select().from(users).where(eq(users.email, email)).get();
+    const user = await db.select().from(users).where(eq(users.email, email.toLowerCase().trim())).get();
     
-    if (!user || user.password !== password) {
+    if (!user || !(await verifyPassword(password, user.password))) {
         throw error(401, 'Credenciales incorrectas');
     }
     
-    const sessionId = generateId();
+    const sessionId = generateSecureId();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
     
@@ -42,7 +39,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         path: '/',
         httpOnly: true,
         sameSite: 'strict',
-        maxAge: 60 * 60 * 24 * 7
+        maxAge: 60 * 60 * 24 * 7,
+        secure: true
     });
     
     return json({
