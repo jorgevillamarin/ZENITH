@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { sessions, tasks } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
 const MIN_TITLE_LENGTH = 5;
@@ -45,6 +45,13 @@ function validateTaskData(data: any): { valid: boolean; errors: string[] } {
         }
     }
     
+    if (data.dueDate !== undefined && data.dueDate !== null) {
+        const date = new Date(data.dueDate);
+        if (isNaN(date.getTime())) {
+            errors.push('La fecha de vencimiento debe ser una fecha válida');
+        }
+    }
+    
     return { valid: errors.length === 0, errors };
 }
 
@@ -68,16 +75,22 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
         
         const categoryId = url.searchParams.get('category');
         
-        let query = db.select().from(tasks).where(eq(tasks.userId, session.userId)).orderBy(tasks.createdAt);
-        
+        let allTasks;
         if (categoryId) {
             const catId = Number(categoryId);
             if (!isNaN(catId)) {
-                query = query.where(eq(tasks.categoryId, catId));
+                allTasks = db.select()
+                    .from(tasks)
+                    .where(and(eq(tasks.userId, session.userId), eq(tasks.categoryId, catId)))
+                    .orderBy(tasks.createdAt)
+                    .all();
+            } else {
+                allTasks = db.select().from(tasks).where(eq(tasks.userId, session.userId)).orderBy(tasks.createdAt).all();
             }
+        } else {
+            allTasks = db.select().from(tasks).where(eq(tasks.userId, session.userId)).orderBy(tasks.createdAt).all();
         }
         
-        const allTasks = query.all();
         return json(allTasks);
     } catch (err) {
         console.error('Error fetching tasks:', err);
@@ -108,7 +121,12 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         throw error(400, validation.errors.join(', '));
     }
     
-    const { title, description, priority, categoryId } = body;
+    const { title, description, priority, categoryId, dueDate } = body;
+    
+    let dueDateValue = null;
+    if (dueDate) {
+        dueDateValue = new Date(dueDate);
+    }
     
     const [newTask] = await db.insert(tasks).values({
         userId: session.userId,
@@ -116,7 +134,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         description: description?.trim() || null,
         priority: priority || 'media',
         categoryId: categoryId || null,
-        completed: false
+        completed: false,
+        dueDate: dueDateValue
     }).returning();
 
     return json(newTask, { status: 201 });

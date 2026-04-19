@@ -8,13 +8,13 @@ const client = createClient({
 });
 
 async function migrate() {
-  console.log('Adding user_id to tasks...');
+  console.log('Adding due_date column...');
   
   try {
     await client.execute({
-      sql: 'ALTER TABLE tasks ADD COLUMN user_id INTEGER NOT NULL DEFAULT 1'
+      sql: 'ALTER TABLE tasks ADD COLUMN due_date INTEGER'
     });
-    console.log('Added user_id column');
+    console.log('Added due_date column');
   } catch (e: any) {
     console.log('Error:', e.message.slice(0, 150));
   }
