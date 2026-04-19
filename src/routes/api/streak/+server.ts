@@ -74,13 +74,16 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             lastDate?.setHours(0, 0, 0, 0);
             
             let newStreak = streakRecord.currentStreak;
+            let justIncreased = false;
             
             if (lastDate && isSameDay(lastDate, today)) {
                 // Ya completó hoy, no increase
             } else if (lastDate && isYesterday(lastDate, today)) {
                 newStreak = streakRecord.currentStreak + 1;
+                justIncreased = true;
             } else {
                 newStreak = 1;
+                justIncreased = true;
             }
             
             const newLongest = Math.max(newStreak, streakRecord.longestStreak);
@@ -94,12 +97,20 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
                 .where(eq(streaks.id, streakRecord.id));
             
             streakRecord = { ...streakRecord, currentStreak: newStreak, longestStreak: newLongest };
+            
+            return json({ 
+                success: true, 
+                streak: newStreak,
+                longestStreak: newLongest,
+                justIncreased: justIncreased
+            });
         }
         
         return json({ 
             success: true, 
-            streak: streakRecord.currentStreak,
-            longestStreak: streakRecord.longestStreak
+            streak: 1,
+            longestStreak: 1,
+            justIncreased: true
         });
     } else {
         await db.update(tasks)

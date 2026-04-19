@@ -68,18 +68,26 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
             yesterday.setDate(yesterday.getDate() - 1);
             
             let isActive = false;
+            let newStreak = streak.currentStreak;
+            
             if (lastDate) {
                 if (lastDate.getTime() === now.getTime()) {
                     isActive = true;
                 } else if (lastDate.getTime() === yesterday.getTime()) {
                     isActive = true;
                 } else {
-                    isActive = false;
+                    newStreak = 0;
                 }
             }
             
+            if (newStreak !== streak.currentStreak) {
+                await db.update(streaks)
+                    .set({ currentStreak: 0 })
+                    .where(eq(streaks.id, streak.id));
+            }
+            
             streakData = { 
-                currentStreak: streak.currentStreak, 
+                currentStreak: newStreak, 
                 longestStreak: streak.longestStreak,
                 isActive: isActive
             };
@@ -93,6 +101,25 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
         tasks: unresolvedTasks.filter((t: any) => t.categoryId === cat.id)
     }));
     const sinCat = unresolvedTasks.filter((t: any) => !t.categoryId);
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const overdueCount = unresolvedTasks.filter((t: any) => {
+        if (!t.dueDate) return false;
+        const dueDate = new Date(t.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate < today;
+    }).length;
+    
+    const dueTodayCount = unresolvedTasks.filter((t: any) => {
+        if (!t.dueDate) return false;
+        const dueDate = new Date(t.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate.getTime() === today.getTime();
+    }).length;
     
     return {
         user: {
@@ -109,6 +136,10 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
         misTareas: unresolvedTasks,
         misCategorias: allCategories,
         allTasksCount: allTasks.length,
-        unresolvedCount: unresolvedTasks.length
+        unresolvedCount: unresolvedTasks.length,
+        notifications: {
+            overdue: overdueCount,
+            dueToday: dueTodayCount
+        }
     };
 };

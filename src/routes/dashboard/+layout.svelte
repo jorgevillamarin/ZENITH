@@ -5,6 +5,7 @@
     let { data, children }: { data: any, children: any } = $props();
     
     let isMenuOpen = $state(false);
+    let showNotifications = $state(false);
 
     let currentPath = $derived(page.url.pathname);
     
@@ -51,8 +52,12 @@
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-medium text-white truncate">{data.user?.name || 'Usuario'}</p>
                     <div class="flex items-center gap-1">
-                        <span class="text-base">🔥</span>
-                        <span class="text-sm font-bold {data.streak?.isActive ? 'text-orange-400' : 'text-gray-500'}">
+                        <img 
+                            src={data.streak?.isActive ? '/racha-on.png' : '/racha-off.png'} 
+                            alt="Racha" 
+                            class="w-6 h-6"
+                        />
+                        <span class="text-sm font-bold {data.streak?.isActive ? 'text-orange-400' : 'text-gray-400'}">
                             {data.streak?.currentStreak || 0}
                         </span>
                     </div>
@@ -103,8 +108,49 @@
         <header class="bg-white p-4 md:p-6 border-b border-gray-200 flex items-center justify-between">
             <h1 class="text-xl md:text-3xl font-bold text-gray-900">Dashboard</h1>
             
-            <div class="flex items-center space-x-3 md:space-x-6">
-                <span class="text-xl md:text-2xl cursor-pointer">🔔</span>
+            <div class="flex items-center gap-3 md:space-x-6">
+                <div class="relative">
+                    <button 
+                        type="button"
+                        onclick={() => showNotifications = !showNotifications}
+                        class="text-xl md:text-2xl cursor-pointer hover:scale-110 transition-transform"
+                    >
+                        🔔
+                    </button>
+                    {#if (data.notifications?.overdue || 0) + (data.notifications?.dueToday || 0) > 0}
+                        <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                            {(data.notifications?.overdue || 0) + (data.notifications?.dueToday || 0)}
+                        </span>
+                    {/if}
+                    {#if showNotifications}
+                        <div class="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-xl border border-gray-200 w-80 z-50 overflow-hidden">
+                            <div class="p-4 border-b border-gray-100">
+                                <h3 class="font-semibold text-gray-800">Notificaciones</h3>
+                            </div>
+                            <div class="max-h-80 overflow-y-auto">
+                                {#if (data.notifications?.overdue || 0) > 0}
+                                    <div class="p-3 bg-red-50 border-b border-red-100">
+                                        <p class="text-sm font-medium text-red-700">
+                                            ⚠️ {data.notifications.overdue} tarea(s) vencida(s)
+                                        </p>
+                                    </div>
+                                {/if}
+                                {#if (data.notifications?.dueToday || 0) > 0}
+                                    <div class="p-3 bg-orange-50 border-b border-orange-100">
+                                        <p class="text-sm font-medium text-orange-700">
+                                            📅 {data.notifications.dueToday} tarea(s) para hoy
+                                        </p>
+                                    </div>
+                                {/if}
+                                {#if (data.notifications?.overdue || 0) === 0 && (data.notifications?.dueToday || 0) === 0}
+                                    <div class="p-4 text-center text-gray-500">
+                                        <p class="text-sm">No hay notificaciones</p>
+                                    </div>
+                                {/if}
+                            </div>
+                        </div>
+                    {/if}
+                </div>
             </div>
         </header>
 

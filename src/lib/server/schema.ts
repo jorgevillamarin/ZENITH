@@ -29,6 +29,7 @@ export const tasks = sqliteTable('tasks', {
   description: text('description'),
   completed: integer('completed', { mode: 'boolean' }).default(false),
   completedAt: integer('completed_at', { mode: 'timestamp' }),
+  dueDate: integer('due_date', { mode: 'timestamp' }),
   priority: text('priority').default('media'),
   categoryId: integer('category_id').references(() => categories.id),
   createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
